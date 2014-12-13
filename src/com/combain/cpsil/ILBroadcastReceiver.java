@@ -25,22 +25,14 @@ public class ILBroadcastReceiver extends BroadcastReceiver {
 	@Override
 	public void onReceive(Context context, Intent intent) {
 		if (intent != null) {
+			Intent serviceIntent = new Intent(context, ILService.class);
 			String action = intent.getAction();
 			if (action != null && action.equals("android.location.GPS_ENABLED_CHANGE")) {
 				boolean enabled = intent.getBooleanExtra("enabled", false);
 				if (Settings.DEBUG) Log.i("ILBroadcastReceiver", "GPSStatus: "+enabled);
-				if (enabled) {
-					Intent serviceIntent = new Intent(context, ILService.class);
-					serviceIntent.putExtras(intent.getExtras());
-					context.startService(serviceIntent);
-				} else {
-					ILService.gpsStatusChanged(enabled);
-					Intent serviceIntent = new Intent(context, ILService.class);
-					serviceIntent.putExtras(intent.getExtras());
-					context.stopService(serviceIntent);
-				}
-				
+				serviceIntent.putExtras(intent.getExtras());
 			}
+			context.startService(serviceIntent);
 		}
 	}
 

@@ -45,17 +45,15 @@ public class Submitter extends PhoneStateListener {
 	
 	public class NetworkReceiver extends BroadcastReceiver {
 		public void onReceive(Context c, Intent intent) {
-			stopSelfIfNotTimeToSend();
 			if (intent.getAction().equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
 				if (isConnectedToBTOrWifi()) {
-					if (measurements.size()>Settings.MIN_MEASUREMENTS_FOR_SENDING) sendData(3);
+					if (measurements.size()>=Settings.minPositionsToSend) sendData(3);
 				}
 			}
 		}
 	}
 	
 	static Vector<String> measurements = new Vector<String>();
-	static Vector<String> measurementsInQueue = null;
 	ILService mService;
 	ConnectivityManager mCM;
 	TelephonyManager mTM;
@@ -80,26 +78,25 @@ public class Submitter extends PhoneStateListener {
 	
 	public void addMeasurement(String str) {
 		measurements.add(str);
-		stopSelfIfNotTimeToSend();
+	}
+	
+	public void handleSendingToServer() {
 		if (Settings.DEBUG) Log.i("Submitter", "Size: "+measurements.size());
-		if (measurements.size()>Settings.MIN_MEASUREMENTS_FOR_SENDING && isConnectedToBTOrWifi()) sendData(1);
+		if (measurements.size()>=Settings.minPositionsToSend && isConnectedToBTOrWifi()) sendData(1);
 	}
 	
 	public void onDataActivity(int direction) {
-		stopSelfIfNotTimeToSend();
 		if (direction != TelephonyManager.DATA_ACTIVITY_NONE && direction != TelephonyManager.DATA_ACTIVITY_DORMANT) {
-			if (measurements.size()>Settings.MIN_MEASUREMENTS_FOR_SENDING && !mTM.isNetworkRoaming()) sendData(2);
+			if (measurements.size()>=Settings.minPositionsToSend && !mTM.isNetworkRoaming()) sendData(2);
 		}
 	}
 	
 	public void sendData(final int reason) {
 		
-		if (measurementsInQueue != null) return;
 		if (measurements.size() == 0) {
-			if (!ILService.isGpsActive && mService != null) mService.stopSelf();
 			return;
 		}
-		measurementsInQueue = measurements;
+		final Vector<String> measurementsInQueue = measurements;
 		measurements = new Vector<String>();
 		
 		System.out.println("Sending Data");
@@ -172,31 +169,26 @@ public class Submitter extends PhoneStateListener {
 						String[] responseParts = response.split(",");
 						if (responseParts[0].equals("OK")) {
 							
-							long validScanFreq = -1;
-							long invalidScanFreq = -1;
-							long invalidScanFreqDuration = -1;
-							long gpsActivateFreq = -1;
+							int minGPSDistance = -1;
+							int minRssiChange = 10;
+							int minPosToSend = 100;
+							
 							if (responseParts.length > 1) {
-								validScanFreq = parseLong(responseParts[1]);
+								minGPSDistance = parseInt(responseParts[1]);
 							}
 							if (responseParts.length > 2) {
-								invalidScanFreq = parseLong(responseParts[2]);
+								minRssiChange = parseInt(responseParts[2]);
+								if (minRssiChange < 0) minRssiChange = 10;
 							}
 							if (responseParts.length > 3) {
-								invalidScanFreqDuration = parseLong(responseParts[3]);
+								minPosToSend = parseInt(responseParts[3]);
+								if (minPosToSend < 0) minPosToSend = 100;
 							}
-							if (responseParts.length > 4) {
-								gpsActivateFreq = parseLong(responseParts[4]);
-							}
-							Settings.validScanFreq = validScanFreq;
-							Settings.invalidScanFreq = invalidScanFreq;
-							Settings.invalidScanFreqDuration = invalidScanFreqDuration;
-							Settings.gpsActivateFreq = gpsActivateFreq;
-							
+							Settings.requiredGPSDistance = minGPSDistance;
+							Settings.requiredWifiLevelDiff = minRssiChange;
+							Settings.minPositionsToSend = minPosToSend;
 						}
 					}
-					
-					measurementsInQueue = null;
 					
 					if (!ILService.isGpsActive && mService != null) {
 						mService.stopSelf();
@@ -245,10 +237,6 @@ public class Submitter extends PhoneStateListener {
 		}
 	}
 	
-	private void stopSelfIfNotTimeToSend() {
-		if (!ILService.isGpsActive && (measurements.size()<100 || (!isConnectedToBTOrWifi() && mTM.isNetworkRoaming())) && mService != null) mService.stopSelf();
-	}
-	
 	public static long parseLong(String s) {
 		try {
 			if (!isEmpty(s))
@@ -264,7 +252,7 @@ public class Submitter extends PhoneStateListener {
 				return Integer.parseInt(s);
 		} catch (NumberFormatException e) {
 		}
-		return 0;
+		return -1;
 	}
 	
 	static boolean isEmpty(String str) {

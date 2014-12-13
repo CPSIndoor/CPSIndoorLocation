@@ -14,101 +14,172 @@
 
 package com.combain.cpsil;
 
+import java.util.List;
+
 import android.app.Service;
 import android.content.Intent;
+import android.location.Location;
+import android.net.wifi.ScanResult;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.text.format.Time;
 import android.util.Log;
 
-
 public class ILService extends Service {
-	
+
 	public class ServiceBinder extends Binder {
 		public ILService getService() {
 			return ILService.this;
 		}
 	}
-	
+
 	static boolean isGpsActive = false;
-	
+
 	Submitter mSubmitter;
 	GPSHandler mGPSHandler;
 	CellHandler mCellHandler;
 	WifiHandler mWifiHandler;
-	SensorHandler mSensorHandler;
-	
+	final Handler handler = new Handler();
+
 	int mStaticSubmitCount = 0;
-	
+
 	private final IBinder mBinder = new ServiceBinder();
-	
+
 	@Override
 	public IBinder onBind(Intent intent) {
 		return mBinder;
 	}
-	
+
 	@Override
 	public void onCreate() {
 		super.onCreate();
-		
+
 		mSubmitter = new Submitter(this);
 		mGPSHandler = new GPSHandler(this);
 		mCellHandler = new CellHandler(this);
 		mWifiHandler = new WifiHandler(this);
-		mSensorHandler = new SensorHandler(this);
-		if (Settings.DEBUG) System.out.println("ILService started");
-		
+		if (Settings.DEBUG)
+			System.out.println("ILService started");
+
 	}
-	
+
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
 		if (intent != null && intent.hasExtra("enabled")) {
 			isGpsActive = intent.getBooleanExtra("enabled", true);
 		}
-		return START_NOT_STICKY;
+		return START_STICKY;
 	}
-	
+
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
 		mWifiHandler.stop();
 		mSubmitter.stop();
-		mSensorHandler.stop();
 	}
 
+	private static Location lastSubmitLocation = null;
+
+	private long lastGPSAge = 100000;
 	public void onWifiScanFinished() {
 		
-		boolean movingState = mSensorHandler.mIsInMovingState;
-		if (movingState || mStaticSubmitCount < 3) {
+		if (Settings.DEBUG) System.out.println("onWifiScanFinished");
+		
+		boolean shouldSend = false;
+		Location loc = GPSHandler.getLastGPSLocation();
+		
+		if (loc != null && GPSHandler.getAge(loc) < 10) {
+			
+			if (lastSubmitLocation == null) {
+				shouldSend = true;
+			} else {
+				float gpslimit = lastSubmitLocation.getAccuracy() + loc.getAccuracy();
+				if (Settings.requiredGPSDistance >= 0) {
+					gpslimit = Settings.requiredGPSDistance;
+				}
+				if (gpslimit == 0 || lastSubmitLocation.distanceTo(loc) > gpslimit) {
+					shouldSend = true;
+				} else {
+					shouldSend = false;
+					if (Settings.DEBUG) System.out.println("GPS has not moved enough!");
+				}
+			}
+			
+		} else {
+			
+			List<ScanResult> srs = mWifiHandler.getScanResult();
+			
+			if (loc != null && GPSHandler.getAge(loc) < lastGPSAge) {
+				
+				if (srs != null && srs.size() > 0) shouldSend = true;
+				
+			} else {
+				
+				if (srs == null || srs.size() == 0) {
+					shouldSend = false;
+				} else if (mWifiHandler.isStrongestWifiSimilarInLastScan(srs)) {
+					if (Settings.DEBUG) System.out.println("Strongest Wifi too similar!");
+					shouldSend = false;
+				} else {
+					shouldSend = true;
+				}
+				
+			}
+		}
+		
+		if (shouldSend) {
+			
+			lastGPSAge = (loc!=null?GPSHandler.getAge(loc):100000);
+			
+			lastSubmitLocation = loc;
+			Time t = new Time();
+			t.setToNow();
+			String time = "";
+			String dateStr = t.toString();
+			if (dateStr != null) {
+				String[] parts = dateStr.split(",");
+				int ind = parts.length - 1;
+				if (ind >= 0) {
+					time = parts[ind];
+					if (time.length() > 1)
+						time = time.substring(0, time.length() - 1);
+				}
+			}
 			String data = mGPSHandler.buildDataString();
 			if (data != null && data.length() > 0) {
-				data+= ";C,"+Math.round(System.currentTimeMillis()/1000);
+				data += ";C," + time;
 				String cell = mCellHandler.buildDataString();
-				if (cell.length()>0) data += ";" + cell;
+				if (cell.length() > 0)
+					data += ";" + cell;
 				String wifi = mWifiHandler.buildDataString();
-				if (wifi.length()>0) data += ";" + wifi;
-				if (Settings.DEBUG) Log.i("ILService","DATA: "+data);
-			
+				if (wifi.length() > 0)
+					data += ";" + wifi;
+				if (Settings.DEBUG)
+					Log.i("ILService", "DATA: " + data);
+
 				mSubmitter.addMeasurement(data);
-				if (!movingState) mStaticSubmitCount++;
 			}
-		} else {
-			if (Settings.DEBUG) Log.i("ILService", "Not in moving state, skipped position");
 		}
+		mSubmitter.handleSendingToServer();
 	}
-	
+
 	public void resetStaticCounters() {
 		mStaticSubmitCount = 0;
 	}
 
 	public static void gpsStatusChanged(boolean active) {
-		if (Settings.DEBUG) Log.i("ILService", "gpsStatus: "+active);
+		if (Settings.DEBUG)
+			Log.i("ILService", "gpsStatus: " + active);
 		isGpsActive = active;
 	}
-	
+
 	@Override
 	public void onTrimMemory(int level) {
-		if (Settings.DEBUG) System.out.println("TRIM MEMORY: "+level);
-		if (mSubmitter != null) mSubmitter.onTrimMemory(level);
+		if (Settings.DEBUG)
+			System.out.println("TRIM MEMORY: " + level);
+		if (mSubmitter != null)
+			mSubmitter.onTrimMemory(level);
 	}
-	
+
 }

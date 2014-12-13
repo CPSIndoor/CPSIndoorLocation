@@ -22,12 +22,9 @@ public class Settings {
 	public static String publicKey = "h2o3h2ry9fgo23n2953h2o";
 	public static String privateKey = "a92e2c92eb25a1616af8d2e436add9637b2913ce32f5261abe29516a11ea3513";
 	
-	public static final int MIN_MEASUREMENTS_FOR_SENDING = 100;
+	public static int minPositionsToSend = 10;
 	
-	// Default settings for scanning
-	public static long validScanFreq = -1;
-	public static long invalidScanFreq = -1;
-	public static long invalidScanFreqDuration = -1;
-	public static long gpsActivateFreq = -1;
+	public static int requiredGPSDistance = -1;
+	public static int requiredWifiLevelDiff = 10;
 	
 }

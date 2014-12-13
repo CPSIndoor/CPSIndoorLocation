@@ -43,15 +43,42 @@ public class WifiHandler extends BroadcastReceiver {
 	
 	@Override
 	public void onReceive(Context arg0, Intent arg1) {
-		// TODO Auto-generated method stub
 		mService.onWifiScanFinished();
 	}
 	
-	private List<ScanResult> mLastBuiltScanResult = null;
+	public void scan() {
+		if (mWifiManager != null) mWifiManager.startScan();
+	}
+	
+	public List<ScanResult> getScanResult() {
+		return mWifiManager.getScanResults();
+	}
+	
+	public boolean isStrongestWifiSimilarInLastScan(List<ScanResult> srs) {
+		ScanResult strongest = null;
+		for (ScanResult sr : srs) {
+			if (strongest == null || sr.level > strongest.level) {
+				strongest = sr;
+			}
+		}
+		if (strongest != null && lastBuiltScanResult != null) {
+			for (ScanResult sr : lastBuiltScanResult) {
+				if (sr.BSSID.equals(strongest.BSSID) && sr.SSID.equals(strongest.SSID)) {
+					if (Math.abs(strongest.level-sr.level) < Settings.requiredWifiLevelDiff) {
+						return true;
+					}
+					break;
+				}
+			}
+		}
+		return false;
+	}
+	
+	private static List<ScanResult> lastBuiltScanResult = null;
 	public String buildDataString() {
 		String data = "";
 		List<ScanResult> srs = mWifiManager.getScanResults();
-		mLastBuiltScanResult = srs;
+		lastBuiltScanResult = srs;
 		if (srs != null && srs.size()>0) {
 			for (ScanResult sr : srs) {
 				if (sr!=null && sr.BSSID!=null) data += (data.length()>0?";":"") + "W," + sr.BSSID.replace(":", "") + ",\"" + sr.SSID + "\"," + sr.level + "," + getAuth(sr.capabilities) + "," + sr.frequency;
@@ -60,26 +87,6 @@ public class WifiHandler extends BroadcastReceiver {
 		return data;
 	}
 
-	public boolean hasStrongestWifisChanged() {
-		return !hasSameStrongestWifis(mLastBuiltScanResult, mWifiManager.getScanResults());
-	}
-	
-	private boolean hasSameStrongestWifis(List<ScanResult> srs1, List<ScanResult> srs2) {
-		if (srs1 == null || srs2 == null) return false;
-		int max = Math.min(2, Math.min(srs1.size(), srs2.size()));
-		for (int i = 0; i < max; i++) {
-			if (!areSame(srs1.get(i), srs2.get(i))) return false;
-		}
-		return true;
-	}
-	
-	private boolean areSame(ScanResult sr1, ScanResult sr2) {
-		if (sr1 == null || sr2 == null) return false;
-		if (sr1.BSSID == null || sr2.BSSID == null || !sr1.BSSID.equals(sr2.BSSID)) return false;
-		if (sr1.SSID == null || sr2.SSID == null || !sr1.SSID.equals(sr2.SSID)) return false;
-		return true;
-	}
-	
 	static String getAuth(String cap) {
 		if (cap == null) {
 			return "";
