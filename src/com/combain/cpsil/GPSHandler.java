@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Combain Mobile AB
+ * Copyright (c) 2015, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -21,6 +21,7 @@ import android.content.Context;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 
@@ -97,9 +98,12 @@ public class GPSHandler implements LocationListener {
 		return ""+Math.round(number);
 	}
 
-	@SuppressLint("NewApi")
 	public static long getAge(Location loc) {
-		return (SystemClock.elapsedRealtimeNanos()-loc.getElapsedRealtimeNanos())/1000000000;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            return (SystemClock.elapsedRealtimeNanos() - loc.getElapsedRealtimeNanos()) / 1000000000;
+        } else {
+            return (System.currentTimeMillis() - loc.getTime()) / 1000;
+        }
 	}
 
 	@Override

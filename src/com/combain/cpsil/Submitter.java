@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Combain Mobile AB
+ * Copyright (c) 2015, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -78,6 +78,7 @@ public class Submitter extends PhoneStateListener {
 	
 	public void addMeasurement(String str) {
 		measurements.add(str);
+        if (Settings.DEBUG) System.out.println("Queue Size: "+measurements.size());
 	}
 	
 	public void handleSendingToServer() {
@@ -86,7 +87,7 @@ public class Submitter extends PhoneStateListener {
 	}
 	
 	public void onDataActivity(int direction) {
-		if (direction != TelephonyManager.DATA_ACTIVITY_NONE && direction != TelephonyManager.DATA_ACTIVITY_DORMANT) {
+		if (Settings.useCellularNetwork && direction != TelephonyManager.DATA_ACTIVITY_NONE && direction != TelephonyManager.DATA_ACTIVITY_DORMANT) {
 			if (measurements.size()>=Settings.minPositionsToSend && !mTM.isNetworkRoaming()) sendData(2);
 		}
 	}
@@ -96,17 +97,20 @@ public class Submitter extends PhoneStateListener {
 		if (measurements.size() == 0) {
 			return;
 		}
+
+        if (!Settings.useCellularNetwork && !isConnectedToBTOrWifi()) return;
+
 		final Vector<String> measurementsInQueue = measurements;
 		measurements = new Vector<String>();
 		
-		System.out.println("Sending Data");
+		//System.out.println("Sending Data");
 		new Thread() {
 			public void run() {
 				
 				URL url;
 				try {
 					
-					String data = Build.BRAND+","+Build.PRODUCT+","+Build.ID+","+reason+","+(ILService.isGpsActive?1:0);
+					String data = Build.BRAND+","+Build.PRODUCT+","+Build.ID+","+reason+","+(ILService.isGpsActive?1:0)+","+ILService.versionName+","+ILService.versionCode;
 					for (String measurement : measurementsInQueue) {
 						data += "\n"+measurement;
 					}

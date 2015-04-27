@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Combain Mobile AB
+ * Copyright (c) 2015, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -18,6 +18,8 @@ import java.util.List;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.wifi.ScanResult;
 import android.os.Binder;
@@ -35,6 +37,9 @@ public class ILService extends Service {
 	}
 
 	static boolean isGpsActive = false;
+
+    public static String versionName = "";
+    public static String versionCode = "";
 
 	Submitter mSubmitter;
 	GPSHandler mGPSHandler;
@@ -62,6 +67,13 @@ public class ILService extends Service {
 		if (Settings.DEBUG)
 			System.out.println("ILService started");
 
+        try {
+            PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            versionName = pInfo.versionName;
+            versionCode = pInfo.versionName;
+        } catch (PackageManager.NameNotFoundException e) {
+
+        }
 	}
 
 	@Override
