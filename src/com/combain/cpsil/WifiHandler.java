@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Combain Mobile AB
+ * Copyright (c) 2015, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -22,6 +22,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
+import android.os.Build;
+import android.os.SystemClock;
 
 public class WifiHandler extends BroadcastReceiver {
 
@@ -81,7 +83,10 @@ public class WifiHandler extends BroadcastReceiver {
 		lastBuiltScanResult = srs;
 		if (srs != null && srs.size()>0) {
 			for (ScanResult sr : srs) {
-				if (sr!=null && sr.BSSID!=null) data += (data.length()>0?";":"") + "W," + sr.BSSID.replace(":", "") + ",\"" + sr.SSID + "\"," + sr.level + "," + getAuth(sr.capabilities) + "," + sr.frequency;
+				if (sr!=null && sr.BSSID!=null) {
+					data += (data.length()>0?";":"") + "W," + sr.BSSID.replace(":", "") + ",\"" + sr.SSID + "\"," + sr.level + "," + getAuth(sr.capabilities) + "," + sr.frequency;
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) data += "," + Math.round((SystemClock.elapsedRealtimeNanos()/1000-sr.timestamp)/1000000);
+				}
 			}
 		}
 		return data;

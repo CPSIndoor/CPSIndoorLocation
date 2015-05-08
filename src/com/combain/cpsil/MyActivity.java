@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Combain Mobile AB
+ * Copyright (c) 2015, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -15,7 +15,15 @@
 package com.combain.cpsil;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.os.Bundle;
 
 public class MyActivity extends Activity {
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        startService(new Intent(this, ILService.class));
+    }
 
 }

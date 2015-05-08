@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Combain Mobile AB
+ * Copyright (c) 2015, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -16,15 +16,20 @@ package com.combain.cpsil;
 
 public class Settings {
 
-	public static final boolean DEBUG = true;
-	
-	// Enter your credentials here. These are demo keys.
-	public static String publicKey = "h2o3h2ry9fgo23n2953h2o";
-	public static String privateKey = "a92e2c92eb25a1616af8d2e436add9637b2913ce32f5261abe29516a11ea3513";
-	
-	public static int minPositionsToSend = 10;
-	
-	public static int requiredGPSDistance = -1;
-	public static int requiredWifiLevelDiff = 10;
-	
+    public static final boolean DEBUG = true;
+
+    // Enter your credentials here. These are demo keys.
+    public static final String publicKey = "h2o3h2ry9fgo23n2953h2o";
+    public static final String privateKey = "a92e2c92eb25a1616af8d2e436add9637b2913ce32f5261abe29516a11ea3513";
+
+    /*
+     * If the app should submit data using cellular network or only when connected to Wifi/Bluetooth
+     */
+    public static final boolean useCellularNetwork = true;
+
+    public static int minPositionsToSend = 1;
+
+    public static int requiredGPSDistance = -1;
+    public static int requiredWifiLevelDiff = 10;
+
 }

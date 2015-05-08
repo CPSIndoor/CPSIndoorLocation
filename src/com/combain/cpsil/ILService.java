@@ -45,6 +45,7 @@ public class ILService extends Service {
 	GPSHandler mGPSHandler;
 	CellHandler mCellHandler;
 	WifiHandler mWifiHandler;
+	EnvironmentalHandler mEnvironmentalHandler;
 	final Handler handler = new Handler();
 
 	int mStaticSubmitCount = 0;
@@ -64,6 +65,7 @@ public class ILService extends Service {
 		mGPSHandler = new GPSHandler(this);
 		mCellHandler = new CellHandler(this);
 		mWifiHandler = new WifiHandler(this);
+		mEnvironmentalHandler = new EnvironmentalHandler();
 		if (Settings.DEBUG)
 			System.out.println("ILService started");
 
@@ -167,6 +169,10 @@ public class ILService extends Service {
 				String wifi = mWifiHandler.buildDataString();
 				if (wifi.length() > 0)
 					data += ";" + wifi;
+				String environmentalData = mEnvironmentalHandler.getEnvironmentalString();
+				if (environmentalData != null && environmentalData.length() > 0) {
+					data += ";" + environmentalData;
+				}
 				if (Settings.DEBUG)
 					Log.i("ILService", "DATA: " + data);
 
