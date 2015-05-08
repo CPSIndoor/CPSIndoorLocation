@@ -16,7 +16,7 @@ package com.combain.cpsil;
 
 public class Settings {
 
-    public static final boolean DEBUG = true;
+    public static final boolean DEBUG = false;
 
     // Enter your credentials here. These are demo keys.
     public static final String publicKey = "h2o3h2ry9fgo23n2953h2o";
@@ -27,7 +27,7 @@ public class Settings {
      */
     public static final boolean useCellularNetwork = true;
 
-    public static int minPositionsToSend = 1;
+    public static int minPositionsToSend = 10;
 
     public static int requiredGPSDistance = -1;
     public static int requiredWifiLevelDiff = 10;
