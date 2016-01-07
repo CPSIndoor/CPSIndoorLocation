@@ -14,16 +14,46 @@
 
 package com.combain.cpsil;
 
+import android.app.Service;
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.SystemClock;
 
 /**
  * Class for handling environmental data e.g. temperature and pressure.
  */
-public class EnvironmentalHandler {
+public class EnvironmentalHandler implements SensorEventListener {
 
-    private static int pressure = 0;
+    SensorManager mSensorManager;
+
+    private static float pressure = 0;
     private static long pressureTimestamp = 0;
+
+    public EnvironmentalHandler(Context c) {
+        mSensorManager = (SensorManager) c.getSystemService(Service.SENSOR_SERVICE);
+        Sensor pressureSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
+        if (pressureSensor != null) mSensorManager.registerListener(this, pressureSensor, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        float[] values = event.values;
+        pressure = event.values[0];
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            pressureTimestamp = SystemClock.elapsedRealtime();
+        } else {
+            pressureTimestamp = System.currentTimeMillis();
+        }
+    }
 
     /**
      * Use this function to set the current barometric pressure.

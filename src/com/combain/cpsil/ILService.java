@@ -65,7 +65,7 @@ public class ILService extends Service {
 		mGPSHandler = new GPSHandler(this);
 		mCellHandler = new CellHandler(this);
 		mWifiHandler = new WifiHandler(this);
-		mEnvironmentalHandler = new EnvironmentalHandler();
+		mEnvironmentalHandler = new EnvironmentalHandler(this);
 		if (Settings.DEBUG)
 			System.out.println("ILService started");
 
