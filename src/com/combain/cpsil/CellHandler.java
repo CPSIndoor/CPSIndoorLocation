@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Combain Mobile AB
+ * Copyright (c) 2016, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -48,19 +48,23 @@ public class CellHandler {
     }
 
     public String buildDataString() {
-        String data = "";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             List<CellInfo> cellInfoList = mTM.getAllCellInfo();
             if (cellInfoList != null && cellInfoList.size() > 0) {
+                StringBuilder sb = new StringBuilder();
+                boolean first = true;
                 for (CellInfo cellInfo : cellInfoList) {
-                    data += (data.length() > 0 ? ";" : "") + (cellInfo.isRegistered() ? "S" : "N") + "," + buildCellString(cellInfo, getRAT(mTM.getNetworkType()));
+                    if (first) {
+                        first = false;
+                    } else {
+                        sb.append(";");
+                    }
+                    sb.append((cellInfo.isRegistered() ? "S" : "N")).append(",").append(buildCellString(cellInfo, getRAT(mTM.getNetworkType())));
                 }
+                return sb.toString();
             }
         }
-        if (data.length() == 0) {
-            data += buildCellString_old();
-        }
-        return data;
+        return buildCellString_old();
     }
 
     @SuppressLint("NewApi")
@@ -201,9 +205,9 @@ public class CellHandler {
     }
 
     private String buildCellString_old() {
-        String str = "";
         TelephonyManager tm = mTM;
         if (tm != null) {
+            StringBuilder sb = new StringBuilder();
             String rat = getRAT(tm.getNetworkType());
             String op = tm.getNetworkOperator();
             int mcc = -1;
@@ -217,13 +221,14 @@ public class CellHandler {
                     .getNeighboringCellInfo();
             CellLocation cl = tm.getCellLocation();
             if (cl != null) {
-                str += "S," + buildServingCellData(rat, mcc, mnc, cl);
+                sb.append("S,").append(buildServingCellData(rat, mcc, mnc, cl));
             }
             for (NeighboringCellInfo neighbor : neighbors) {
-                str += ";" + "N," + buildData(mcc, mnc, neighbor);
+                sb.append(";").append("N,").append(buildData(mcc, mnc, neighbor));
             }
+            return sb.toString();
         }
-        return str;
+        return "";
     }
 
     private static String buildServingCellData(String rat, int mcc, int mnc, CellLocation cellLocation) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Combain Mobile AB
+ * Copyright (c) 2016, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -16,17 +16,20 @@ package com.combain.cpsil;
 
 import java.util.Locale;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.support.v4.content.ContextCompat;
 
 public class GPSHandler implements LocationListener {
-	
+
 	private ILService mILS;
 	private LocationManager mLM;
 	private static Location mLatestLocation = null;
@@ -48,62 +51,70 @@ public class GPSHandler implements LocationListener {
 
 		@Override
 		public void onStatusChanged(String provider, int status, Bundle extras) {	}
-		
+
 	};
-	
+
 	public GPSHandler(ILService s) {
 		mILS = s;
 		mLM = (LocationManager) s.getSystemService(Context.LOCATION_SERVICE);
-		mLatestLocation = mLM.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-		mLM.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 0, 0, this);
-		
-		mLM.requestSingleUpdate(LocationManager.GPS_PROVIDER, mSingleUpdateListener, null);
-		
-		s.handler.postDelayed(new Runnable() {
-			public void run() {
-				mLM.removeUpdates(mSingleUpdateListener);
+
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || ContextCompat.checkSelfPermission(s,
+				Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+			mLatestLocation = mLM.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+			mLM.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 0, 0, this);
+
+			if (Settings.tryGPSOnceOnStartup) {
+				mLM.requestSingleUpdate(LocationManager.GPS_PROVIDER, mSingleUpdateListener, null);
+
+				s.handler.postDelayed(new Runnable() {
+					public void run() {
+						if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || ContextCompat.checkSelfPermission(mILS,
+								Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+							mLM.removeUpdates(mSingleUpdateListener);
+					}
+				}, 30000);
+				// For backup if first shutdown fails
+				s.handler.postDelayed(new Runnable() {
+					public void run() {
+						if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || ContextCompat.checkSelfPermission(mILS,
+								Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+							mLM.removeUpdates(mSingleUpdateListener);
+					}
+				}, 40000);
 			}
-		}, 30000);
-		// For backup if first stop fails
-		s.handler.postDelayed(new Runnable() {
-			public void run() {
-				mLM.removeUpdates(mSingleUpdateListener);
-			}
-		}, 40000);
-		
+		}
 	}
-	
+
 	public static Location getLastGPSLocation() {
 		return mLatestLocation;
 	}
 
 	public String buildDataString() {
 		Locale locale = null;
-		String data = "";
 		Location loc = getLastGPSLocation();
 		if (loc != null) {
 			long age = getAge(loc);
-//			if (age > 3600) return ""; // Always send 
-			data = "G," + String.format(locale, "%.5f", loc.getLatitude()) + ","
+//			if (age > 3600) return ""; // Always send
+			return "G," + String.format(locale, "%.5f", loc.getLatitude()) + ","
 					+ String.format(locale, "%.5f", loc.getLongitude()) + ","
 					+ formatInteger(loc.getAccuracy()) + "," + formatInteger(loc.getAltitude()) + ","
 					+ formatInteger(loc.getSpeed()) + "," + formatInteger(loc.getBearing()) + ","
 					+ formatInteger(age) + "," + Math.round(loc.getTime()/1000);
 		}
-		return data;
+		return "";
 	}
-	
+
 	public static String formatInteger(double number) {
 		if (number==0) return "";
 		return ""+Math.round(number);
 	}
 
 	public static long getAge(Location loc) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            return (SystemClock.elapsedRealtimeNanos() - loc.getElapsedRealtimeNanos()) / 1000000000;
-        } else {
-            return (System.currentTimeMillis() - loc.getTime()) / 1000;
-        }
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+			return (SystemClock.elapsedRealtimeNanos() - loc.getElapsedRealtimeNanos()) / 1000000000;
+		} else {
+			return (System.currentTimeMillis() - loc.getTime()) / 1000;
+		}
 	}
 
 	@Override
@@ -122,5 +133,6 @@ public class GPSHandler implements LocationListener {
 
 	@Override
 	public void onStatusChanged(String arg0, int arg1, Bundle arg2) {	}
-	
+
+
 }

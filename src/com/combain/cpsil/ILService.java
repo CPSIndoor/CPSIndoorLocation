@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Combain Mobile AB
+ * Copyright (c) 2016, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -23,12 +23,15 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.wifi.ScanResult;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.text.format.Time;
 import android.util.Log;
 
 public class ILService extends Service {
+
+    public static final String TAG = "ILService";
 
 	public class ServiceBinder extends Binder {
 		public ILService getService() {
@@ -45,6 +48,7 @@ public class ILService extends Service {
 	GPSHandler mGPSHandler;
 	CellHandler mCellHandler;
 	WifiHandler mWifiHandler;
+	BLEHandler mBLEHandler;
 	EnvironmentalHandler mEnvironmentalHandler;
 	final Handler handler = new Handler();
 
@@ -65,6 +69,11 @@ public class ILService extends Service {
 		mGPSHandler = new GPSHandler(this);
 		mCellHandler = new CellHandler(this);
 		mWifiHandler = new WifiHandler(this);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			mBLEHandler = new BLEHandler_23(this);
+		} else {
+			mBLEHandler = new BLEHandler(this);
+		}
 		mEnvironmentalHandler = new EnvironmentalHandler(this);
 		if (Settings.DEBUG)
 			System.out.println("ILService started");
@@ -90,21 +99,22 @@ public class ILService extends Service {
 	public void onDestroy() {
 		super.onDestroy();
 		mWifiHandler.stop();
+		mBLEHandler.stop();
 		mSubmitter.stop();
 	}
 
 	private static Location lastSubmitLocation = null;
 
 	private long lastGPSAge = 100000;
-	public void onWifiScanFinished() {
-		
-		if (Settings.DEBUG) System.out.println("onWifiScanFinished");
-		
+	public void onWifiScanFinished(List<ScanResult> srs) {
+
+		if (Settings.DEBUG) Log.v(TAG, "onWifiScanFinished: "+(srs == null ? "null" : srs.size()));
+
 		boolean shouldSend = false;
 		Location loc = GPSHandler.getLastGPSLocation();
-		
-		if (loc != null && GPSHandler.getAge(loc) < 10) {
-			
+
+		if (loc != null && GPSHandler.getAge(loc) < 5) {
+
 			if (lastSubmitLocation == null) {
 				shouldSend = true;
 			} else {
@@ -119,37 +129,43 @@ public class ILService extends Service {
 					if (Settings.DEBUG) System.out.println("GPS has not moved enough!");
 				}
 			}
-			
+
 		} else {
-			
-			List<ScanResult> srs = mWifiHandler.getScanResult();
-			
+
 			if (loc != null && GPSHandler.getAge(loc) < lastGPSAge) {
-				
+
 				if (srs != null && srs.size() > 0) shouldSend = true;
-				
+
 			} else {
-				
-				if (srs == null || srs.size() == 0) {
-					shouldSend = false;
-				} else if (mWifiHandler.isStrongestWifiSimilarInLastScan(srs)) {
-					if (Settings.DEBUG) System.out.println("Strongest Wifi too similar!");
+
+                if (mBLEHandler.hasMoreBLEData()) {
+                    if (Settings.DEBUG) Log.v(TAG, "BLE changes!");
+                    shouldSend = true;
+                } else if (mWifiHandler.isStrongestWifiSimilarInLastScan(srs)) {
+					if (Settings.DEBUG) Log.v(TAG, "Strongest Wifi too similar!");
 					shouldSend = false;
 				} else {
+                    if (Settings.DEBUG) Log.v(TAG, "Wifi has changed!");
 					shouldSend = true;
 				}
-				
+
 			}
 		}
-		
-		if (shouldSend) {
-			
-			lastGPSAge = (loc!=null?GPSHandler.getAge(loc):100000);
-			
-			lastSubmitLocation = loc;
+
+		if (shouldSend) handleNewMeasurement(loc, srs);
+	}
+
+	private void handleNewMeasurement(Location loc, List<ScanResult> srs) {
+
+		if (Settings.DEBUG) Log.v(TAG, "handleNewMeasurement");
+
+		lastGPSAge = (loc!=null?GPSHandler.getAge(loc):100000);
+
+		lastSubmitLocation = loc;
+		String time = "";
+		try {
 			Time t = new Time();
 			t.setToNow();
-			String time = "";
 			String dateStr = t.toString();
 			if (dateStr != null) {
 				String[] parts = dateStr.split(",");
@@ -160,36 +176,35 @@ public class ILService extends Service {
 						time = time.substring(0, time.length() - 1);
 				}
 			}
-			String data = mGPSHandler.buildDataString();
-			if (data != null && data.length() > 0) {
-				data += ";C," + time;
-				String cell = mCellHandler.buildDataString();
-				if (cell.length() > 0)
-					data += ";" + cell;
-				String wifi = mWifiHandler.buildDataString();
-				if (wifi.length() > 0)
-					data += ";" + wifi;
-				String environmentalData = mEnvironmentalHandler.getEnvironmentalString();
-				if (environmentalData != null && environmentalData.length() > 0) {
-					data += ";" + environmentalData;
-				}
-				if (Settings.DEBUG)
-					Log.i("ILService", "DATA: " + data);
-
-				mSubmitter.addMeasurement(data);
-			}
+		} catch (Exception e) {
+			time = ""+System.currentTimeMillis();
 		}
-		mSubmitter.handleSendingToServer();
-	}
 
-	public void resetStaticCounters() {
-		mStaticSubmitCount = 0;
-	}
+		String gpsData = mGPSHandler.buildDataString();
+		if (gpsData != null && gpsData.length() > 0) {
+			StringBuilder sb = new StringBuilder(gpsData);
+			sb.append(";C,").append(time);
+			String cell = mCellHandler.buildDataString();
+			if (cell.length() > 0)
+				sb.append(";").append(cell);
+			String wifi = mWifiHandler.buildDataString();
+			if (wifi.length() > 0)
+				sb.append(";").append(wifi);
+			String ble = mBLEHandler.buildDataString();
+			if (ble.length() > 0)
+				sb.append(";").append(ble);
+			String environmentalData = mEnvironmentalHandler.getEnvironmentalString();
+			if (environmentalData != null && environmentalData.length() > 0) {
+				sb.append(";").append(environmentalData);
+			}
+			if (Settings.DEBUG)
+				Log.i(TAG, "DATA: " + sb.toString());
 
-	public static void gpsStatusChanged(boolean active) {
-		if (Settings.DEBUG)
-			Log.i("ILService", "gpsStatus: " + active);
-		isGpsActive = active;
+			mSubmitter.addMeasurement(sb.toString());
+		} else {
+			if (Settings.DEBUG) Log.v(TAG, "GPS DATA IS EMPTY");
+		}
+
 	}
 
 	@Override

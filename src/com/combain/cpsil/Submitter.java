@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Combain Mobile AB
+ * Copyright (c) 2016, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -52,7 +52,9 @@ public class Submitter extends PhoneStateListener {
 			}
 		}
 	}
-	
+
+	public static final String TAG = "Submitter";
+
 	static Vector<String> measurements = new Vector<String>();
 	ILService mService;
 	ConnectivityManager mCM;
@@ -64,13 +66,13 @@ public class Submitter extends PhoneStateListener {
 		mService = s;
 		mCM = (ConnectivityManager) s.getSystemService(Context.CONNECTIVITY_SERVICE);
 		mTM = (TelephonyManager) s.getSystemService(Context.TELEPHONY_SERVICE);
-		mTM.listen(this, PhoneStateListener.LISTEN_DATA_ACTIVITY);
+		if (Settings.useCellularNetwork) mTM.listen(this, PhoneStateListener.LISTEN_DATA_ACTIVITY);
 		mAM = (ActivityManager) s.getSystemService(Context.ACTIVITY_SERVICE);
 		s.registerReceiver(mNR, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 	}
 	
 	public void stop() {
-		mTM.listen(this, PhoneStateListener.LISTEN_NONE);
+		if (Settings.useCellularNetwork) mTM.listen(this, PhoneStateListener.LISTEN_NONE);
 		if (mService != null) {
 			mService.unregisterReceiver(mNR);
 		}
@@ -79,10 +81,11 @@ public class Submitter extends PhoneStateListener {
 	public void addMeasurement(String str) {
 		measurements.add(str);
         if (Settings.DEBUG) System.out.println("Queue Size: "+measurements.size());
+		handleSendingToServer();
 	}
 	
 	public void handleSendingToServer() {
-		if (Settings.DEBUG) Log.i("Submitter", "Size: "+measurements.size());
+		if (Settings.DEBUG) Log.i("Submitter", "Size: "+measurements.size() + " Min to send: " + Settings.minPositionsToSend);
 		if (measurements.size()>=Settings.minPositionsToSend && isConnectedToBTOrWifi()) sendData(1);
 	}
 	
@@ -173,30 +176,21 @@ public class Submitter extends PhoneStateListener {
 						String[] responseParts = response.split(",");
 						if (responseParts[0].equals("OK")) {
 							
-							int minGPSDistance = -1;
-							int minRssiChange = 10;
-							int minPosToSend = 100;
-							
 							if (responseParts.length > 1) {
-								minGPSDistance = parseInt(responseParts[1]);
+								Settings.requiredGPSDistance = parseInt(responseParts[1]);
 							}
 							if (responseParts.length > 2) {
-								minRssiChange = parseInt(responseParts[2]);
-								if (minRssiChange < 0) minRssiChange = 10;
+								Settings.requiredWifiLevelDiff = parseInt(responseParts[2]);
 							}
 							if (responseParts.length > 3) {
-								minPosToSend = parseInt(responseParts[3]);
-								if (minPosToSend < 0) minPosToSend = 100;
+								Settings.minPositionsToSend = parseInt(responseParts[3]);
 							}
-							Settings.requiredGPSDistance = minGPSDistance;
-							Settings.requiredWifiLevelDiff = minRssiChange;
-							Settings.minPositionsToSend = minPosToSend;
 						}
 					}
 					
-					if (!ILService.isGpsActive && mService != null) {
+					/*if (!ILService.isGpsActive && mService != null) {
 						mService.stopSelf();
-					}
+					}*/
 					
 				} catch (MalformedURLException e) {
 					e.printStackTrace();

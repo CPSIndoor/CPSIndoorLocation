@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Combain Mobile AB
+ * Copyright (c) 2016, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -24,8 +24,14 @@ public class Settings {
 
     /*
      * If the app should submit data using cellular network or only when connected to Wifi/Bluetooth
+     * Requires permission READ_PHONE_STATE if set to true
      */
-    public static final boolean useCellularNetwork = true;
+    public static final boolean useCellularNetwork = false;
+
+    /*
+     * If activated it tries for 30 seconds to get a location from GPS on start, then makes Wifi scan.
+     */
+    public static boolean tryGPSOnceOnStartup = false;
 
     public static int minPositionsToSend = 10;
 

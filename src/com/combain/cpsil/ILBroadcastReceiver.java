@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Combain Mobile AB
+ * Copyright (c) 2016, Combain Mobile AB
  * 
  * All rights reserved.
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Combain Mobile AB
+ * Copyright (c) 2016, Combain Mobile AB
  *
  * All rights reserved.
  *
@@ -46,21 +46,7 @@ public class EnvironmentalHandler implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        float[] values = event.values;
         pressure = event.values[0];
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            pressureTimestamp = SystemClock.elapsedRealtime();
-        } else {
-            pressureTimestamp = System.currentTimeMillis();
-        }
-    }
-
-    /**
-     * Use this function to set the current barometric pressure.
-     * @param pres The pressure in hPa (millibar)
-     */
-    public static void setCurrentBarometricPressure(int pres) {
-        pressure = pres;
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR1) {
             pressureTimestamp = SystemClock.elapsedRealtime();
         } else {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Combain Mobile AB
+ * Copyright (c) 2016, Combain Mobile AB
  * 
  * All rights reserved.
  *
@@ -45,22 +45,20 @@ public class WifiHandler extends BroadcastReceiver {
 	
 	@Override
 	public void onReceive(Context arg0, Intent arg1) {
-		mService.onWifiScanFinished();
+		mService.onWifiScanFinished(mWifiManager.getScanResults());
 	}
 	
 	public void scan() {
 		if (mWifiManager != null) mWifiManager.startScan();
 	}
 	
-	public List<ScanResult> getScanResult() {
-		return mWifiManager.getScanResults();
-	}
-	
 	public boolean isStrongestWifiSimilarInLastScan(List<ScanResult> srs) {
 		ScanResult strongest = null;
-		for (ScanResult sr : srs) {
-			if (strongest == null || sr.level > strongest.level) {
-				strongest = sr;
+		if (srs != null) {
+			for (ScanResult sr : srs) {
+				if (strongest == null || sr.level > strongest.level) {
+					strongest = sr;
+				}
 			}
 		}
 		if (strongest != null && lastBuiltScanResult != null) {
@@ -78,18 +76,29 @@ public class WifiHandler extends BroadcastReceiver {
 	
 	private static List<ScanResult> lastBuiltScanResult = null;
 	public String buildDataString() {
-		String data = "";
 		List<ScanResult> srs = mWifiManager.getScanResults();
 		lastBuiltScanResult = srs;
 		if (srs != null && srs.size()>0) {
+			StringBuilder sb = new StringBuilder();
+			boolean first = true;
 			for (ScanResult sr : srs) {
 				if (sr!=null && sr.BSSID!=null) {
-					data += (data.length()>0?";":"") + "W," + sr.BSSID.replace(":", "") + ",\"" + sr.SSID + "\"," + sr.level + "," + getAuth(sr.capabilities) + "," + sr.frequency;
-					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) data += "," + Math.round((SystemClock.elapsedRealtimeNanos()/1000-sr.timestamp)/1000000);
+					if (first) {
+						first = false;
+					} else {
+						sb.append(";");
+					}
+					sb.append("W,").append(sr.BSSID.replace(":", "")).append(",\"").append(sr.SSID);
+					sb.append("\",").append(sr.level).append(",").append(getAuth(sr.capabilities));
+					sb.append(",").append(sr.frequency);
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+						sb.append(",").append(Math.round((SystemClock.elapsedRealtimeNanos()/1000-sr.timestamp)/1000000));
+					}
 				}
 			}
+			return sb.toString();
 		}
-		return data;
+		return "";
 	}
 
 	static String getAuth(String cap) {
